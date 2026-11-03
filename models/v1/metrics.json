@@ -1,0 +1,32 @@
+{
+  "protocol": "official splits: Training / PublicTest (val) / PrivateTest (test)",
+  "test_accuracy": 0.5603,
+  "test_macro_f1": 0.4961,
+  "per_class_f1": {
+    "angry": 0.401,
+    "disgust": 0.312,
+    "fear": 0.213,
+    "happy": 0.854,
+    "sad": 0.396,
+    "surprise": 0.713,
+    "neutral": 0.582
+  },
+  "epochs_trained": 80,
+  "original_leaky_accuracy_reported": 0.8131,
+  "original_protocol_leak_pct_of_test_rows": 62.1,
+  "train_val_test_sizes": [
+    28006,
+    3589,
+    3589
+  ],
+  "inference_prior_correction": [
+    0.64189,
+    0.12188,
+    0.65414,
+    1.0,
+    0.74009,
+    0.53978,
+    0.75555
+  ],
+  "inference_prior_correction_note": "probs * w_c^-0.75 (w_c = balanced class weights used in training); exponent chosen on PublicTest. PrivateTest with correction: acc 0.5762, macro-F1 0.520, disgust precision 0.44 (vs 0.20)."
+}

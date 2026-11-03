@@ -1,28 +1,116 @@
-# Facial-Expression-Detection-using-CNN-Real-Time-Recognition-with-Webcam
-The project aim is to develop a facial expression detection system using CNNs that can accurately recognize and classify facial expressions across a range of emotions. 
+# Facial Expression Recognition with a CNN: leak-free evaluation & real-time demo
 
-## Overview
+Real-time recognition of 7 facial expressions (angry, disgust, fear, happy, sad, surprise, neutral) from a webcam,
+using a CNN trained on FER2013 and OpenCV's YuNet face detector.
 
-Facial expression detection has been an active area of research for decades due to its wide range of applications in various fields such as psychology, human-computer interaction, and computer vision. The proposed approach involves processing the input images by scaling and one-hot encoding. It also involves resampling to balance the dataset as the dataset contains the minority class. The pre-processed images are then fed into a CNN model that consist of several convolution layers, batch normalization, activation function, max-pooling layers and fully connected layers. The model is trained using a dataset of facial expression images labelled with the corresponding emotion. The proposed CNN model for facial expression detection aims to accurately classify facial expressions from input images. Here is the complete architecture for proposed CNN model:
+## Credit / baseline
 
-1. Input Layer: The input layer of the model receives grayscale images representing faces as input and the dimensions of the input images is given as 48*48. 
-2. Convolution Layers: The convolution layers form the backbone of the model and perform feature extraction from the input images. Typically, we define 5 convolution layers with the filter size of 3*3, stride as 1 and padding is sometime “same” and sometime “valid”. These layers are stacked to each other to capture various level of spatial information. Batch Normalization is applied after each layer along with ReLU activation function to introduce non-linearity. 
-3. Pooling Layers: Pooling Layers are used to reduce the spatial dimensions of the feature maps and extract the most important features. We have used Max Pooling technique where the maximum value in each local region of the feature map is retained, discarding the rest. Max Pooling helps in reducing computational complexity and providing a form translation invariance to small shifts in the input. 
-4. Flattening Layer: After Convolution Layer and Pooling Layer, there is a flattening layer which is responsible for flattened the convolution layers and represent it in a one-dimension.
-5. Fully Connected Layers: The fully connected layers are responsible for learning high-level representations of features extracted by the convolution layers. The feature maps from the last pooling layer are flattened into a vector and connected to one or more fully connected layers. Each fully connected layer has a set of learnable weights and biases, which are updated during training process. We have used ReLU activation function and 200 neurons in for our dense layer. And finally, Dropout has been applied after the dense layer to prevent overfitting.
-6. Drop Regularization: Dropout Regularization is often employed to prevent overfitting by randomly dropping out a fraction of the neurons during training, forcing the network to rely on different combinations of features.
-7. Output Layer:  The output layer of the model performs the classification of facial expressions. For facial expression detection, the output layer typically consists of a SoftMax activation function, which produces the probability scores for each class (e.g., happy, sad, neutral, angry etc.) and the class with the highest probability score is considered as the predicted facial expression.
+This project builds on
+[shivamsingh96/Facial-Expression-Detection-using-CNN-Real-Time-Recognition-with-Webcam](https://github.com/shivamsingh96/Facial-Expression-Detection-using-CNN-Real-Time-Recognition-with-Webcam).
+The CNN architecture and the original notebook
+(`Real-Time Facial Expression Detection & Recognition using CNN.ipynb`) come from that repository and are kept
+unchanged for reference. Everything listed under *What I changed* is new work.
 
-The two major differences in this architecture compared to other state-of-the-art model are: (a) we have used Batch Normalization after every layer before activation function to normalize the layer, generally it is used after the activation function, and (b) secondly, we have used both kind of padding i.e., valid and same whereas mostly “same” padding has been used in general scenario. 
+## What I changed
 
-## Result Analysis:
+### 1. Found and fixed data leakage in the evaluation
+The baseline balanced the classes by **randomly duplicating images over the whole dataset and only then splitting it
+into train/test**. Copies of the same image therefore landed on both sides of the split.
 
-The proposed approach was evaluated on FER2013 dataset which is publicly available on Kaggle. The results show that the proposed approach outperforms existing state-of-the-art methods in terms of accuracy, precision, recall, and F1-score. The proposed approach achieved an accuracy of 81.39% on FER2013 dataset. The result of this thesis demonstrates the effectiveness of using CNNs for facial expression detection. The proposed approach can be used in various applications such as emotion recognition, human-computer interaction and virtual reality.
+Re-creating that protocol on FER2013 shows that **about 62% of the "test" images have an exact copy in the
+training set**: 100% for *disgust* (547 images duplicated about 16×), 0% for *happy* (never duplicated).
+That explains the baseline's suspicious per-class results: *disgust*, the hardest FER2013 class,
+scored 0.99 precision / 1.00 recall, while *happy* had no copies and scored a more ordinary 0.80 recall.
+The reported **81.3% accuracy measures memorisation, not generalisation.**
 
-## Final Result:
+The fix (`train_fer_colab.ipynb`):
+- the official FER2013 splits: `Training` → train, `PublicTest` → validation, `PrivateTest` → test (used once)
+- exact-duplicate images shared between training and val/test removed from training
+- class imbalance handled with a **class-weighted loss on the training split** instead of duplicating images
+- data augmentation (flip, rotation, shift, zoom), early stopping, LR-on-plateau, best-checkpoint restore
+- accuracy, macro-F1, per-class report and a normalised confusion matrix on the untouched test set
 
-We can use Opencv library to capture the image in a real-time and predict the expression. After running the final piece of code i.e., webcam_test, we will get the below result:
+### 2. Fixed the real-time demo (`webcam_test.py`)
+| Problem in the original | Fix |
+|---|---|
+| Crashed on current TensorFlow: the Keras 2.12 JSON can't be loaded by Keras 3 | architecture defined in code (`fer_model.py`); loads the new `.keras` model or the old `fer.h5` |
+| `cv2.destroyAllWindows` without `()`, so it was never called | fixed, with cleanup in `finally` |
+| Face crop used `[y:y+w, x:x+h]` (width/height swapped) | `[y:y+h, x:x+w]` |
+| Infinite loop when no camera was available | clear error message; exits after repeated read failures |
+| `model.predict()` per face per frame (slow, log spam) | one batched direct call per frame |
+| Labels flicker frame-to-frame | per-face temporal smoothing (`--smooth`) |
+| Haar cascade misses tilted faces and fires on background clutter | **YuNet** CNN face detector (`face_detection_yunet_2023mar.onnx`, OpenCV Zoo); Haar kept as fallback (`--detector haar`) |
+| Non-square face boxes were squashed when resized to 48×48 | boxes made square around the face centre, clipped to the frame |
+| Files found only if run from the repo folder | paths resolved relative to the script |
+| — | confidence %, probability sidebar, FPS, pause/screenshot keys, `--video` / `--image` fallback modes, DirectShow backend on Windows |
 
+### 3. Documentation corrections
+The baseline README said the dense layer has 200 units (the code uses 250) and reported 81.39% (the notebook shows 81.31%).
+It also described putting BatchNorm *before* the activation as unusual. That is the placement proposed in the original
+BatchNorm paper (Ioffe & Szegedy, 2015), so it isn't presented as a contribution here.
 
-https://github.com/shivamsingh96/Facial-Expression-Detection-using-CNN-Real-Time-Recognition-with-Webcam/assets/123630632/f94ddf6a-a2ff-464e-8b42-e6bde0e7b734
+## Results
 
+| | Baseline (original protocol) | This project |
+|---|---|---|
+| Test set | random 10% of oversampled data | official FER2013 PrivateTest (3,589 images) |
+| Train/test overlap | ~62% of test images seen in training | none |
+| Test accuracy | 81.3% (inflated) | **56.0%** (57.6% with class-prior correction) |
+| Macro-F1 | 0.81 (inflated) | **0.496** (0.520 with correction) |
+
+Measured with the baseline architecture (notebook v1, 80 epochs). Notebook v2 trains a VGG-style network with
+milder class weights and gradient clipping. Its numbers are written to `metrics.json` when you run it.
+
+Note: the original `fer.h5` scores 89% on PrivateTest, but only because it was trained on those images.
+
+For context, FER2013 human-level accuracy is reported at about 65 ± 5%, and the best published single models
+reach the mid-70s.
+
+## How to run
+
+### Demo (Windows), easiest way
+Install **Python 3.12** from python.org (tick *Add python.exe to PATH*). TensorFlow has no Windows build for Python 3.14,
+so don't use the newest version. Then double-click **`run_demo.bat`**. The first run installs everything
+(about 5–10 min); later runs start straight away. Arguments pass through, e.g. `run_demo.bat --camera 1`.
+
+### Demo (Windows), manual
+```bat
+:: one-time setup: create the virtual environment OUTSIDE OneDrive so it doesn't sync thousands of files
+py -3.12 -m venv C:\venvs\fer
+C:\venvs\fer\Scripts\python.exe -m pip install --upgrade pip
+C:\venvs\fer\Scripts\python.exe -m pip install -r requirements.txt
+
+:: run (from this folder)
+C:\venvs\fer\Scripts\python.exe webcam_test.py
+```
+Options: `--camera 1` (other camera), `--video clip.mp4` or `--image face.jpg` (no webcam needed),
+`--output out.mp4` (record), `--smooth 0` (no smoothing), `--model path`.
+Keys: **q**/Esc quit · **p** pause · **s** screenshot.
+
+The demo uses `models/v1/fer_model.keras` (retrained, leak-free) if present, otherwise the baseline `models/baseline/fer.h5`.
+
+### Training (Google Colab, about 15–25 min on a T4 GPU)
+1. Get `fer2013.csv` (Kaggle FER2013 challenge CSV) into Google Drive.
+2. Open `notebooks/train_fer_colab.ipynb` in Colab → *Runtime → Change runtime type → T4 GPU*.
+3. Set `CSV_PATH` in section 2, then *Runtime → Run all*.
+4. Download `fer_model.keras` (and `metrics.json`, the plots) and put them in `models/v1/` (or a new `models/v2/`, then update the paths in `fer_model.py`).
+
+## Project structure
+```
+├── webcam_test.py          real-time demo (rewritten)
+├── fer_model.py            model definition + version-independent loading (new)
+├── evaluate.py             full evaluation metrics (new)
+├── run_demo.bat            one-click Windows setup + launch
+├── requirements.txt
+├── models/
+│   ├── v1/                 retrained leak-free model: fer_model.keras, fer.weights.h5,
+│   │                       metrics.json, training_curves.png, confusion_matrix.png
+│   ├── baseline/           fer.h5 (leaky protocol, fallback only) + Keras 2 model JSON (no longer needed)
+│   └── detectors/          YuNet face detector (OpenCV Zoo, MIT licence) + Haar cascade (fallback)
+├── notebooks/
+│   ├── train_fer_colab.ipynb                         leak-free training & evaluation (new)
+│   └── Real-Time Facial Expression ... CNN.ipynb     baseline notebook, unchanged
+├── data/fer2013/           FER2013 dataset (not in git)
+├── results/evaluation/     output of evaluate.py
+└── docs/                   project overview (Proj_Ovie.md) + presentation
+```

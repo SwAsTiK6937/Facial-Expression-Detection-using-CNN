@@ -1,0 +1,10 @@
+# Webcam demo (Windows/macOS/Linux). Tested with Python 3.11-3.13, TensorFlow 2.21, OpenCV 4.x / 5.x.
+tensorflow>=2.16
+opencv-python>=4.8
+numpy>=1.24
+
+# Only needed to run the training notebook locally (Colab already has these)
+pandas
+scikit-learn
+matplotlib
+seaborn

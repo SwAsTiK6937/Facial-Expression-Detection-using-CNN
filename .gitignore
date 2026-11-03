@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.vscode/
+.ipynb_checkpoints/
+
+# dataset (288 MB) - download separately
+data/
+
+# demo outputs
+screenshot_*.png
+*.mp4
