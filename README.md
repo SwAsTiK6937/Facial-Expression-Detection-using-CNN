@@ -3,14 +3,6 @@
 Real-time recognition of 7 facial expressions (angry, disgust, fear, happy, sad, surprise, neutral) from a webcam,
 using a CNN trained on FER2013 and OpenCV's YuNet face detector.
 
-## Credit / baseline
-
-This project builds on
-[shivamsingh96/Facial-Expression-Detection-using-CNN-Real-Time-Recognition-with-Webcam](https://github.com/shivamsingh96/Facial-Expression-Detection-using-CNN-Real-Time-Recognition-with-Webcam).
-The CNN architecture and the original notebook
-(`Real-Time Facial Expression Detection & Recognition using CNN.ipynb`) come from that repository and are kept
-unchanged for reference. Everything listed under *What I changed* is new work.
-
 ## What I changed
 
 ### 1. Found and fixed data leakage in the evaluation
